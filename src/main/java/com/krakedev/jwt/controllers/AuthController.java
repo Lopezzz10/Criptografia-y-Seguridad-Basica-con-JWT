@@ -4,15 +4,18 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader; 
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.auth0.jwt.interfaces.DecodedJWT;  
 import com.krakedev.jwt.entidades.Usuario;
 import com.krakedev.jwt.repositories.UsuarioRepository; 
 import com.krakedev.jwt.services.UsuarioService;
-import com.krakedev.jwt.utils.JwtUtil; 
+import com.krakedev.jwt.utils.JwtUtil;  
 
 @RestController
 @RequestMapping("/api/auth")
@@ -50,5 +53,36 @@ public class AuthController {
 		} else {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contrasenia incorrecta");
 		}
+	}
+
+	@GetMapping("/perfil")
+	public ResponseEntity<?> verPerfil(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+
+		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+					.body("Acceso Denegado: Debes proveer un token Bearer válido en la cabecera Authorization");
+		}
+
+		String token = authHeader.substring(7);
+		DecodedJWT datosToken = JwtUtil.validarToken(token);
+
+		if (datosToken == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Acceso Denegado: Token Inválido o Expirado");
+		}
+
+		String usuario = datosToken.getSubject();
+		String rol = datosToken.getClaim("rol").asString();
+		String saludo;
+		if ("ADMIN".equals(rol)) {
+			saludo = "Bienvenido voluntario " + usuario + ", puedes registrar rescates y autorizar adopciones";
+		} else {
+			saludo = "Bienvenido adoptante " + usuario + ", puedes ver mascotas disponibles y postularte";
+		}
+
+		return ResponseEntity.ok(Map.of(
+				"Mensaje", saludo,
+				"Usuario", usuario,
+				"Rol", rol,
+				"Estatus", "Autenticado Exitosamente"));
 	}
 }
